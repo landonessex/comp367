@@ -5,35 +5,46 @@ pipeline {
         maven 'Maven'
     }
     
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub')
+        DOCKER_IMAGE_NAME = 'landonessex/comp367'
+    }
+    
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
-        stage('Build') {
+        
+        stage('Build Maven Project') {
             steps {
                 sh '${MAVEN_HOME}/bin/mvn clean package'
             }
         }
-        stage('Test') {
+        
+        stage('Docker Login') {
             steps {
-                echo 'Running tests...'
+                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
             }
         }
-        stage('Archive Artifacts') {
+        
+        stage('Docker Build') {
             steps {
-                archiveArtifacts artifacts: 'target/*.war', fingerprint: true
+                sh "docker build -t ${DOCKER_IMAGE_NAME}:latest ."
+            }
+        }
+        
+        stage('Docker Push') {
+            steps {
+                sh "docker push ${DOCKER_IMAGE_NAME}:latest"
             }
         }
     }
     
     post {
-        success {
-            echo 'Build succeeded!'
-        }
-        failure {
-            echo 'Build failed!'
+        always {
+            sh 'docker logout'
         }
     }
 }
